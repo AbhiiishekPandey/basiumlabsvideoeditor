@@ -6,9 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "media:encode": "node scripts/encode-media.mjs",
+    "media:upload": "node scripts/upload-media.mjs",
+    "check:browser": "node scripts/browser-check.mjs"
   },
   "dependencies": {
+    "gsap": "^3.15.0",
     "next": "16.4.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"
@@ -22,5 +27,8 @@
     "eslint-config-next": "16.4.2",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

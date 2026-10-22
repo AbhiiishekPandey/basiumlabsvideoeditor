@@ -1,0 +1,123 @@
+{
+  "$comment": "Editorial catalog. `source` is relative to the originals folder (parent of basiumlabs/) and is only ever read. `rotate` fixes footage encoded sideways. Times are in seconds. Categories are assigned by content, not folder.",
+  "projects": [
+    {
+      "slug": "mvp",
+      "title": "MVP",
+      "format": "Product film",
+      "category": "product-launch",
+      "source": "Product Launch/MVP.mp4",
+      "previewStart": 12,
+      "posterAt": 15.5
+    },
+    {
+      "slug": "basium-ai",
+      "title": "Basium AI",
+      "format": "Product walkthrough",
+      "category": "product-launch",
+      "source": "Product Launch/Basium AI.mp4",
+      "previewStart": 65,
+      "posterAt": 70
+    },
+    {
+      "slug": "basium-in-launch",
+      "title": "Basium.in",
+      "format": "UI motion film",
+      "category": "product-launch",
+      "source": "Product Launch/Basium.in.mp4",
+      "previewStart": 9,
+      "posterAt": 12
+    },
+    {
+      "slug": "brandpilot",
+      "title": "BrandPilot",
+      "format": "Launch film",
+      "category": "product-launch",
+      "source": "Product Launch/BrandPilot.mp4",
+      "previewStart": 27,
+      "posterAt": 31
+    },
+    {
+      "slug": "tedx-trailer",
+      "title": "TEDx Trailer",
+      "format": "Narrative trailer",
+      "category": "long-form",
+      "source": "Long Form/Tedx Trailer.mp4",
+      "previewStart": 90,
+      "posterAt": 94
+    },
+    {
+      "slug": "student-life",
+      "title": "Student Life",
+      "format": "Day-in-the-life film",
+      "category": "long-form",
+      "source": "Long Form/Student Life.mp4",
+      "rotate": "ccw",
+      "previewStart": 66,
+      "posterAt": 69
+    },
+    {
+      "slug": "robomania",
+      "title": "Robomania",
+      "format": "Event team reveal",
+      "category": "short-form",
+      "source": "Long Form/Robomania.mp4",
+      "previewStart": 8,
+      "posterAt": 9
+    },
+    {
+      "slug": "something-new-is-coming",
+      "title": "Something New Is Coming",
+      "format": "Teaser",
+      "category": "short-form",
+      "source": "Short Form/Something new is coming.mp4",
+      "previewStart": 2,
+      "posterAt": 5
+    },
+    {
+      "slug": "tedx-beginning",
+      "title": "TEDx — Beginning",
+      "format": "Event promo",
+      "category": "short-form",
+      "source": "Short Form/Tedx beginning.mp4",
+      "previewStart": 14,
+      "posterAt": 16
+    },
+    {
+      "slug": "tedx-registration",
+      "title": "TEDx — Registration",
+      "format": "Registration promo",
+      "category": "short-form",
+      "source": "Short Form/Tedx Registration.mp4",
+      "previewStart": 2,
+      "posterAt": 6
+    },
+    {
+      "slug": "tedx-end-of-story",
+      "title": "TEDx — End of Story",
+      "format": "Event recap",
+      "category": "short-form",
+      "source": "Short Form/Tedx(End of Story).mp4",
+      "previewStart": 3,
+      "posterAt": 4.5
+    },
+    {
+      "slug": "facultify",
+      "title": "Facultify",
+      "format": "Talking-head reel",
+      "category": "short-form",
+      "source": "Short Form/Facultify.mp4",
+      "previewStart": 6,
+      "posterAt": 9
+    },
+    {
+      "slug": "basium-in-reel",
+      "title": "Basium.in",
+      "format": "Caption explainer reel",
+      "category": "short-form",
+      "source": "Short Form/Basium.in.mp4",
+      "previewStart": 16,
+      "posterAt": 20
+    }
+  ]
+}

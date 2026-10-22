@@ -1,0 +1,376 @@
+{
+  "mvp": {
+    "width": 1276,
+    "height": 718,
+    "fps": 30,
+    "duration": 30.022,
+    "hasAudio": true,
+    "previewStart": 12,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 1938075,
+      "preview": 163742,
+      "poster": 34628
+    },
+    "source": {
+      "file": "MVP.mp4",
+      "folder": "Product Launch",
+      "width": 1276,
+      "height": 718,
+      "bytes": 1511552
+    }
+  },
+  "basium-ai": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 78.018,
+    "hasAudio": true,
+    "previewStart": 65,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 5107629,
+      "preview": 121098,
+      "poster": 39134
+    },
+    "source": {
+      "file": "Basium AI.mp4",
+      "folder": "Product Launch",
+      "width": 720,
+      "height": 1280,
+      "bytes": 5809473
+    }
+  },
+  "basium-in-launch": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 30.037,
+    "hasAudio": true,
+    "previewStart": 9,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 2726815,
+      "preview": 205309,
+      "poster": 51433
+    },
+    "source": {
+      "file": "Basium.in.mp4",
+      "folder": "Product Launch",
+      "width": 720,
+      "height": 1280,
+      "bytes": 1943568
+    }
+  },
+  "brandpilot": {
+    "width": 1276,
+    "height": 718,
+    "fps": 30,
+    "duration": 50.572,
+    "hasAudio": true,
+    "previewStart": 27,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 3770551,
+      "preview": 68303,
+      "poster": 13484
+    },
+    "source": {
+      "file": "BrandPilot.mp4",
+      "folder": "Product Launch",
+      "width": 1276,
+      "height": 718,
+      "bytes": 2732046
+    }
+  },
+  "tedx-trailer": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration": 232.2,
+    "hasAudio": true,
+    "previewStart": 90,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1920,
+      "height": 1080
+    },
+    "bytes": {
+      "sd": 53114123,
+      "preview": 488540,
+      "poster": 57099,
+      "hd": 115907882
+    },
+    "source": {
+      "file": "Tedx Trailer.mp4",
+      "folder": "Long Form",
+      "width": 2560,
+      "height": 1440,
+      "bytes": 426362479
+    }
+  },
+  "student-life": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration": 137.81,
+    "hasAudio": true,
+    "previewStart": 66,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 40206881,
+      "preview": 700273,
+      "poster": 91664
+    },
+    "source": {
+      "file": "Student Life.mp4",
+      "folder": "Long Form",
+      "width": 720,
+      "height": 1280,
+      "bytes": 48830567
+    }
+  },
+  "robomania": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration": 43.514,
+    "hasAudio": true,
+    "previewStart": 8,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1920,
+      "height": 1080
+    },
+    "bytes": {
+      "sd": 10747558,
+      "preview": 533692,
+      "poster": 105525,
+      "hd": 22161618
+    },
+    "source": {
+      "file": "Robomania.mp4",
+      "folder": "Long Form",
+      "width": 2560,
+      "height": 1440,
+      "bytes": 82016602
+    }
+  },
+  "something-new-is-coming": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 8.893,
+    "hasAudio": true,
+    "previewStart": 2,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1080,
+      "height": 1920
+    },
+    "bytes": {
+      "sd": 2409988,
+      "preview": 627462,
+      "poster": 164942,
+      "hd": 5129872
+    },
+    "source": {
+      "file": "Something new is coming.mp4",
+      "folder": "Short Form",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 16077229
+    }
+  },
+  "tedx-beginning": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 38.174,
+    "hasAudio": true,
+    "previewStart": 14,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1080,
+      "height": 1920
+    },
+    "bytes": {
+      "sd": 12039688,
+      "preview": 792489,
+      "poster": 76954,
+      "hd": 28256373
+    },
+    "source": {
+      "file": "Tedx beginning.mp4",
+      "folder": "Short Form",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 50668495
+    }
+  },
+  "tedx-registration": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 26.471,
+    "hasAudio": true,
+    "previewStart": 2,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1080,
+      "height": 1920
+    },
+    "bytes": {
+      "sd": 6399787,
+      "preview": 915255,
+      "poster": 62512,
+      "hd": 15029761
+    },
+    "source": {
+      "file": "Tedx Registration.mp4",
+      "folder": "Short Form",
+      "width": 1080,
+      "height": 1920,
+      "bytes": 18491609
+    }
+  },
+  "tedx-end-of-story": {
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "duration": 28.7,
+    "hasAudio": true,
+    "previewStart": 3,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg",
+      "hd": "hd.mp4"
+    },
+    "hd": {
+      "width": 1920,
+      "height": 1080
+    },
+    "bytes": {
+      "sd": 6904622,
+      "preview": 778096,
+      "poster": 124920,
+      "hd": 15898621
+    },
+    "source": {
+      "file": "Tedx(End of Story).mp4",
+      "folder": "Short Form",
+      "width": 1920,
+      "height": 1080,
+      "bytes": 41748880
+    }
+  },
+  "facultify": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "duration": 31.019,
+    "hasAudio": true,
+    "previewStart": 6,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 3530465,
+      "preview": 334963,
+      "poster": 38889
+    },
+    "source": {
+      "file": "Facultify.mp4",
+      "folder": "Short Form",
+      "width": 720,
+      "height": 1280,
+      "bytes": 2854411
+    }
+  },
+  "basium-in-reel": {
+    "width": 720,
+    "height": 1280,
+    "fps": 30,
+    "duration": 40.1,
+    "hasAudio": true,
+    "previewStart": 16,
+    "previewDuration": 6,
+    "files": {
+      "sd": "sd.mp4",
+      "preview": "preview.mp4",
+      "poster": "poster.jpg"
+    },
+    "bytes": {
+      "sd": 4210765,
+      "preview": 219425,
+      "poster": 70174
+    },
+    "source": {
+      "file": "Basium.in.mp4",
+      "folder": "Short Form",
+      "width": 720,
+      "height": 1280,
+      "bytes": 3349880
+    }
+  }
+}

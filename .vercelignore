@@ -1,0 +1,3 @@
+# Media is served from the external bucket, never from the deployment.
+public/media
+.wrangler
