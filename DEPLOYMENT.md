@@ -1,4 +1,4 @@
-# Deploying Basiumlabs
+# Deploying the portfolio
 
 The site deploys to **Vercel** from GitHub. Video and poster files are **not** in the repo or the deployment; they are served from a **Cloudflare R2** bucket.
 
@@ -24,7 +24,7 @@ ${NEXT_PUBLIC_MEDIA_BASE_URL}/<slug>/<file>      e.g. https://media.example.com/
 
 ## 1. Cloudflare R2
 
-1. Cloudflare dashboard → **R2 Object Storage** → enable R2 → **Create bucket**, name `basiumlabs-media`, location *Automatic*.
+1. Cloudflare dashboard → **R2 Object Storage** → enable R2 → **Create bucket**, name `portfolio-media`, location *Automatic*.
 2. Public access — choose one:
    - **Production:** bucket → **Settings → Custom Domains → Connect Domain** → e.g. `media.yourdomain.com` (the domain's DNS must be on Cloudflare). Base URL: `https://media.yourdomain.com`
    - **Testing only:** bucket → **Settings → Public Development URL → Enable**. Base URL: the shown `https://pub-….r2.dev`
@@ -32,8 +32,8 @@ ${NEXT_PUBLIC_MEDIA_BASE_URL}/<slug>/<file>      e.g. https://media.example.com/
 
    ```bash
    npx wrangler login
-   npm run media:upload -- basiumlabs-media          # dry run: lists all 45 files, validates sizes
-   npm run media:upload -- basiumlabs-media --yes    # uploads (Content-Type + Cache-Control: 7 days)
+   npm run media:upload -- portfolio-media          # dry run: lists all 45 files, validates sizes
+   npm run media:upload -- portfolio-media --yes    # uploads (Content-Type + Cache-Control: 7 days)
    ```
 
 4. Check one file: `curl -I https://media.yourdomain.com/mvp/sd.mp4` → `200`, `content-type: video/mp4`.
@@ -50,9 +50,9 @@ ${NEXT_PUBLIC_MEDIA_BASE_URL}/<slug>/<file>      e.g. https://media.example.com/
 ```bash
 git status                      # public/media must NOT appear (it is git-ignored)
 git add -A
-git commit -m "Prepare Basiumlabs for production"
+git commit -m "Prepare portfolio for production"
 # create an empty private repo on GitHub, then:
-git remote add origin https://github.com/<you>/basiumlabs.git
+git remote add origin https://github.com/<you>/portfolio.git
 git push -u origin main
 ```
 
@@ -60,8 +60,9 @@ git push -u origin main
 
 1. **Add New → Project → Import** the GitHub repo. Framework preset: Next.js (auto). Root directory: the repo root. Build settings: defaults.
 2. **Environment Variables** → `NEXT_PUBLIC_MEDIA_BASE_URL` = your base URL from step 1.2 (no trailing slash needed), for **Production** and **Preview**.
-3. **Deploy.** If the variable is missing the build stops with a clear error.
-4. Verify against the live site (needs Edge or Chrome locally):
+3. Optional: `NEXT_PUBLIC_SITE_URL` = the public site URL (custom domain), for absolute link-preview image URLs.
+4. **Deploy.** If the variable is missing the build stops with a clear error.
+5. Verify against the live site (needs Edge or Chrome locally):
 
    ```bash
    npm run check:browser -- --url https://<your-site>.vercel.app --media https://media.yourdomain.com
@@ -69,7 +70,7 @@ git push -u origin main
 
 ## Updating media later
 
-`npm run media:encode -- --force <slug>` → `npm run media:upload -- basiumlabs-media --yes` → if served through a custom domain, purge those URLs (Cloudflare → **Caching → Purge Cache**) → commit the updated `media-manifest.json` and push (Vercel redeploys).
+`npm run media:encode -- --force <slug>` → `npm run media:upload -- portfolio-media --yes` → if served through a custom domain, purge those URLs (Cloudflare → **Caching → Purge Cache**) → commit the updated `media-manifest.json` and push (Vercel redeploys).
 
 ## Secrets
 

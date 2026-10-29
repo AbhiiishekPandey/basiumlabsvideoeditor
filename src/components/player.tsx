@@ -10,9 +10,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { categories, isVertical, type Project } from "@/content/projects";
+import { categories, type Project } from "@/content/projects";
 import { toRuntime, toSpokenRuntime, toTimecode } from "@/lib/timecode";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { ChevronLeft, ChevronRight } from "./icons";
 
 type OpenOptions = { label?: string };
 type PlayerApi = { openPlayer: (queue: Project[], index?: number, opts?: OpenOptions) => void };
@@ -164,49 +165,53 @@ function PlayerDialog({ session, onIndex, onClose }: DialogProps) {
         const t = e.target as HTMLElement;
         if (t === e.currentTarget || t.dataset.backdrop !== undefined) dialogRef.current?.close();
       }}
-      className="player m-0 h-svh max-h-none w-screen max-w-none bg-ink/95 p-0 text-bone"
+      className="player m-0 h-svh max-h-none w-screen max-w-none bg-transparent p-2 text-fg sm:p-6"
     >
       {project && (
-        <div className="flex h-full flex-col gap-3 px-4 py-4 sm:px-8 sm:py-6">
-          <header className="flex flex-wrap items-center justify-between gap-3 font-mono text-[11px] tracking-[0.15em] uppercase sm:text-xs">
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="flex items-center gap-2 text-rec">
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-rec" />
+        <div className="glass flex h-full flex-col gap-3 rounded-[28px] p-3 sm:gap-4 sm:rounded-[36px] sm:p-5">
+          <header className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="tag">
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-live" />
                 {session?.label ?? category?.title}
               </span>
               {total > 1 && (
-                <span className="text-bone-dim tabular-nums">
-                  {String(index + 1).padStart(2, "0")}/{String(total).padStart(2, "0")}
+                <span className="text-xs text-fg-dim tabular-nums">
+                  {index + 1} / {total}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {total > 1 && (
                 <>
-                  <button type="button" onClick={() => go(-1)} disabled={!hasPrev} className="btn-ghost" aria-keyshortcuts="P">
-                    ← Prev
+                  <button type="button" onClick={() => go(-1)} disabled={!hasPrev} className="icon-btn" aria-label="Previous" aria-keyshortcuts="P">
+                    <ChevronLeft />
                   </button>
-                  <button type="button" onClick={() => go(1)} disabled={!hasNext} className="btn-ghost" aria-keyshortcuts="N">
-                    Next →
+                  <button type="button" onClick={() => go(1)} disabled={!hasNext} className="icon-btn" aria-label="Next" aria-keyshortcuts="N">
+                    <ChevronRight />
                   </button>
                 </>
               )}
-              <button type="button" onClick={() => dialogRef.current?.close()} className="btn-ghost">
-                Close <span className="text-bone-dim">Esc</span>
+              <button type="button" onClick={() => dialogRef.current?.close()} className="pill-ghost pill-sm">
+                Close <span className="text-fg-faint">Esc</span>
               </button>
             </div>
           </header>
 
-          <div data-backdrop className="relative flex min-h-0 flex-1 items-center justify-center">
+          {/* A size container, so the video can be the largest box of its own ratio that fits. */}
+          <div
+            data-backdrop
+            className="relative flex min-h-0 flex-1 items-center justify-center"
+            style={{ containerType: "size" }}
+          >
             {/* key: remount per piece so the poster never flashes the old frame */}
             <video
               key={project.slug}
               ref={videoRef}
-              className="max-h-full max-w-full bg-ink-2"
+              className="rounded-[20px] bg-black"
               style={{
                 aspectRatio: `${project.width} / ${project.height}`,
-                height: isVertical(project) ? "100%" : undefined,
-                width: isVertical(project) ? undefined : "100%",
+                width: `min(100cqw, 100cqh * ${project.width / project.height})`,
               }}
               poster={project.poster}
               controls
@@ -221,38 +226,36 @@ function PlayerDialog({ session, onIndex, onClose }: DialogProps) {
             {failed && (
               <div
                 role="alert"
-                className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-ink/85 text-center"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-[20px] bg-black/70 text-center"
               >
-                <p className="font-mono text-xs tracking-[0.15em] text-bone-dim uppercase">
-                  Signal lost
-                </p>
-                <p className="max-w-xs text-bone">This video couldn&apos;t be loaded.</p>
-                <button type="button" className="btn-solid" onClick={() => setAttempt((a) => a + 1)}>
+                <p className="text-xs font-medium tracking-[0.14em] text-fg-faint uppercase">Playback error</p>
+                <p className="max-w-xs">This video couldn&apos;t be loaded.</p>
+                <button type="button" className="pill-solid" onClick={() => setAttempt((a) => a + 1)}>
                   Retry
                 </button>
               </div>
             )}
           </div>
 
-          <footer className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+          <footer className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 px-1">
             <div>
-              <h2 id={titleId} className="font-display text-3xl leading-none uppercase sm:text-4xl">
+              <h2 id={titleId} className="text-2xl leading-tight font-semibold tracking-[-0.02em] sm:text-3xl">
                 {project.title}
               </h2>
-              <p id="player-meta" className="mt-2 font-mono text-[11px] tracking-[0.15em] text-bone-dim uppercase sm:text-xs">
+              <p id="player-meta" className="mt-1 text-sm text-fg-dim">
                 {project.format} · {category?.title} ·{" "}
                 <span aria-hidden="true">{toRuntime(project.durationSeconds)}</span>
                 <span className="sr-only">{toSpokenRuntime(project.durationSeconds)}</span>
               </p>
             </div>
-            <p aria-hidden="true" className="font-mono text-xs tracking-[0.15em] tabular-nums">
-              <span ref={timecodeRef}>00:00:00:00</span>
-              <span className="text-bone-dim"> / {toTimecode(project.durationSeconds, project.fps)}</span>
+            <p aria-hidden="true" className="text-xs text-fg-dim tabular-nums">
+              <span ref={timecodeRef} className="text-fg">00:00:00:00</span>
+              <span> / {toTimecode(project.durationSeconds, project.fps)}</span>
             </p>
           </footer>
 
           {total > 1 && (
-            <nav aria-label="Up next" className="-mx-4 overflow-x-auto px-4 sm:-mx-8 sm:px-8">
+            <nav aria-label="Up next" className="no-scrollbar -mx-3 overflow-x-auto px-3 sm:-mx-5 sm:px-5">
               <ol className="flex gap-2">
                 {session?.queue.map((p, i) => (
                   <li key={p.slug} className="shrink-0">
@@ -261,8 +264,8 @@ function PlayerDialog({ session, onIndex, onClose }: DialogProps) {
                       onClick={() => onIndex(i)}
                       aria-current={i === index ? "true" : undefined}
                       aria-label={`${i + 1}. ${p.title}, ${p.format}`}
-                      className={`relative block h-12 overflow-hidden border transition-colors sm:h-14 ${
-                        i === index ? "border-rec" : "border-transparent opacity-50 hover:opacity-100"
+                      className={`relative block h-12 overflow-hidden rounded-xl ring-2 transition sm:h-14 ${
+                        i === index ? "ring-white" : "opacity-55 ring-transparent hover:opacity-100"
                       }`}
                       style={{ aspectRatio: `${p.width} / ${p.height}` }}
                     >

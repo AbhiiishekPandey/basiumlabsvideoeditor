@@ -1,48 +1,42 @@
 import type { Metadata, Viewport } from "next";
-import { Anton, Geist_Mono, Inter_Tight } from "next/font/google";
+import { Inter } from "next/font/google";
 import { MediaPreconnect } from "@/components/media-preconnect";
+import { profile } from "@/content/profile";
 import "./globals.css";
 
-const anton = Anton({
-  variable: "--font-anton",
-  weight: "400",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const interTight = Inter_Tight({
-  variable: "--font-inter-tight",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const TITLE = "Basiumlabs — Video Editing Portfolio";
+const TITLE = `${profile.name} — Video Editor`;
 const DESCRIPTION =
-  "Basiumlabs edits product launches, long-form stories and short-form social — built on rhythm, pacing and the cut.";
+  "Video editing portfolio of Abhishek Pandey: product films, TEDx trailers and event promos, and short-form reels.";
+
+// Absolute base for share images. On Vercel, Next falls back to the
+// production URL; set NEXT_PUBLIC_SITE_URL for any other host or a custom domain.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  title: { default: TITLE, template: "%s — Basiumlabs" },
+  metadataBase: SITE_URL ? new URL(SITE_URL) : undefined,
+  title: { default: TITLE, template: `%s — ${profile.name}` },
   description: DESCRIPTION,
-  applicationName: "Basiumlabs",
-  creator: "Basiumlabs",
-  openGraph: { type: "website", siteName: "Basiumlabs", title: TITLE, description: DESCRIPTION },
-  twitter: { card: "summary", title: TITLE, description: DESCRIPTION },
+  applicationName: profile.name,
+  authors: [{ name: profile.name }],
+  creator: profile.name,
+  keywords: ["Abhishek Pandey", "video editor", "video editing portfolio", "reels", "product films", "TEDx"],
+  openGraph: { type: "profile", siteName: profile.name, title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0b",
+  themeColor: "#c3beb6",
   colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${anton.variable} ${interTight.variable} ${geistMono.variable} antialiased`}
-    >
+    <html lang="en" className={`${inter.variable} antialiased`}>
       <body className="min-h-svh">
         <MediaPreconnect />
         {children}

@@ -33,19 +33,19 @@ export type Project = {
   sourceFolder: string;
 };
 
-// Order here is the order on the page.
+// Order here is the order of the filter tabs.
 export const categories: Category[] = [
   {
     id: "product-launch",
     index: "01",
-    title: "Product Launch",
-    summary: "Cinematic product films, UI walkthroughs and launch campaigns.",
+    title: "Product Films",
+    summary: "Launch films, product walkthroughs and UI motion.",
   },
   {
     id: "long-form",
     index: "02",
     title: "Long Form",
-    summary: "Trailers and documentary storytelling, paced for the full watch.",
+    summary: "Trailers and story-led films paced for the full watch.",
   },
   {
     id: "short-form",
@@ -93,6 +93,12 @@ export const projects: Project[] = catalog.projects.flatMap((item) => {
 export const projectBySlug = (slug: string) => projects.find((p) => p.slug === slug);
 
 export const heroProject = projectBySlug("mvp") ?? projects[0];
+
+// The hero carousel: the intro slide, then these pieces in order.
+const FEATURED = ["tedx-trailer", "robomania", "brandpilot", "tedx-end-of-story"];
+export const featured: Project[] = FEATURED.flatMap((slug) => projectBySlug(slug) ?? []);
+
+export const categoryTitle = (id: CategoryId) => categories.find((c) => c.id === id)?.title ?? "";
 
 export const projectsIn = (id: CategoryId) => projects.filter((p) => p.category === id);
 

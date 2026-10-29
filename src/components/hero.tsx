@@ -1,253 +1,227 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { showreel, type Project } from "@/content/projects";
-import { gsap } from "@/lib/gsap";
-import { toTimecode } from "@/lib/timecode";
+import { aspectLabel, categoryTitle, featured, showreel, type Project } from "@/content/projects";
+import { profile } from "@/content/profile";
+import { toRuntime } from "@/lib/timecode";
 import { useReducedMotion } from "@/lib/use-reduced-motion";
+import { ChevronLeft, ChevronRight, MailIcon, PauseIcon, PlayIcon, SparkIcon } from "./icons";
 import { usePlayer } from "./player";
 
-const WORDMARK = "BASIUMLABS";
-const HEADLINE = ["Every", "frame,", "on", "purpose."];
-// MVP opens on near-black frames; the background loop starts where the
-// laptop opens and the screen lights up.
-const LOOP_START = 6;
+// MVP opens on near-black frames; its intro loop starts where the screen lights up.
+const INTRO_LOOP_START = 6;
 
-type Status = "idle" | "playing" | "paused" | "error";
+type Slide = { kind: "intro"; project: Project } | { kind: "featured"; project: Project; index: number };
 
 function prefersSavingData() {
   const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
   return Boolean(conn?.saveData);
 }
 
-export function Hero({ project }: { project: Project }) {
-  const rootRef = useRef<HTMLElement>(null);
+export function Hero({ intro }: { intro: Project }) {
+  const slides: Slide[] = [
+    { kind: "intro", project: intro },
+    ...featured.map((project, index) => ({ kind: "featured" as const, project, index })),
+  ];
+  const [current, setCurrent] = useState(0);
+  const [userPaused, setUserPaused] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const timecodeRef = useRef<HTMLSpanElement>(null);
-  const userPausedRef = useRef(false);
+  const rootRef = useRef<HTMLElement>(null);
   const reducedMotion = useReducedMotion();
   const { openPlayer } = usePlayer();
-  const [status, setStatus] = useState<Status>("idle");
-  const [hasPlayed, setHasPlayed] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const playing = status === "playing";
 
-  // Muted autoplay unless the viewer asked for less motion or less data.
-  // If the browser refuses, the poster stays up and the Play control works.
+  const slide = slides[current];
+  const { project } = slide;
+  const isIntro = slide.kind === "intro";
+  // The intro loops the full film from its loop point; featured slides loop their 6 s preview.
+  const loopSrc = isIntro ? project.src : project.preview;
+  const loopStart = isIntro ? INTRO_LOOP_START : 0;
+  const videoFailed = failed === loopSrc;
+
+  // Muted background loop, unless the viewer asked for less motion or data,
+  // paused it, or the card is off-screen. The poster stays up as the fallback.
   useEffect(() => {
     const video = videoRef.current;
-    // Metadata may have loaded before hydration attached onLoadedMetadata, so
-    // apply the loop start here too (before metadata, this sets the default
-    // playback start position).
-    if (video && video.currentTime < LOOP_START) video.currentTime = LOOP_START;
-    if (!video || reducedMotion || prefersSavingData()) {
-      video?.pause();
-      return;
-    }
-    userPausedRef.current = false;
-    // The video is server-rendered, so it can fail before hydration attaches
-    // onError; check video.error whenever a play attempt is refused.
-    video.play().catch(() => setStatus((s) => (video.error ? "error" : s === "error" ? s : "paused")));
-  }, [reducedMotion]);
-
-  // Pause off-screen; resume on return unless the viewer paused it.
-  useEffect(() => {
     const root = rootRef.current;
-    const video = videoRef.current;
-    if (!root || !video) return;
+    if (!video || !root) return;
+    const allowed = !reducedMotion && !prefersSavingData() && !userPaused;
     const io = new IntersectionObserver(([entry]) => {
-      // Also catches a pre-hydration load failure when autoplay never ran.
-      if (video.error) setStatus("error");
-      else if (!entry.isIntersecting) video.pause();
-      else if (hasPlayed && !userPausedRef.current) video.play().catch(() => {});
+      if (allowed && entry.isIntersecting) video.play().catch(() => {});
+      else video.pause();
     });
     io.observe(root);
     return () => io.disconnect();
-  }, [hasPlayed]);
+  }, [reducedMotion, userPaused, loopSrc]);
 
-  useEffect(() => {
-    let raf = 0;
-    const tick = () => {
-      const v = videoRef.current;
-      if (v && timecodeRef.current) timecodeRef.current.textContent = toTimecode(v.currentTime, project.fps);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [project.fps]);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const mm = gsap.matchMedia(root);
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
-      gsap
-        .timeline({ defaults: { ease: "power4.out" } })
-        .from("[data-hero-media]", { scale: 1.12, duration: 2.4, ease: "power2.out" }, 0)
-        .from("[data-hero-letter]", { yPercent: 105, duration: 1, stagger: 0.04 }, 0.1)
-        .from("[data-hero-word]", { yPercent: 110, duration: 0.9, stagger: 0.08 }, 0.35)
-        // Hard cuts: labels and controls snap in on their own frames.
-        .from("[data-hero-cut]", { autoAlpha: 0, duration: 0.01, stagger: 0.12 }, 0.7);
-
-      // Scroll: the frame pushes in and the wordmark drifts up as you leave.
-      gsap
-        .timeline({ scrollTrigger: { trigger: root, start: "top top", end: "bottom top", scrub: 0.4 } })
-        .to("[data-hero-media]", { scale: 1.1, ease: "none" }, 0)
-        .to("[data-hero-shade]", { opacity: 0.85, ease: "none" }, 0)
-        .to("[data-hero-wordmark]", { yPercent: -18, ease: "none" }, 0);
-    });
-    return () => mm.revert();
-  }, []);
-
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video || status === "error") return;
-    if (playing) {
-      userPausedRef.current = true;
-      video.pause();
-    } else {
-      userPausedRef.current = false;
-      if (video.currentTime < LOOP_START) video.currentTime = LOOP_START;
-      video.play().catch(() => setStatus("paused"));
-    }
+  const go = (delta: number) => {
+    setPlaying(false);
+    setCurrent((c) => (c + delta + slides.length) % slides.length);
   };
 
-  const toggleSound = () => {
-    const video = videoRef.current;
-    if (!video || status === "error") return;
-    video.muted = !muted;
-    setMuted(!muted);
-    if (muted && video.paused) {
-      userPausedRef.current = false;
-      video.play().catch(() => {});
-    }
-  };
+  const titleId = "hero-title";
 
   return (
     <section
       ref={rootRef}
-      aria-labelledby="hero-title"
-      className="relative isolate flex h-svh min-h-[600px] flex-col overflow-hidden"
+      aria-roledescription="carousel"
+      aria-labelledby={titleId}
+      className="relative isolate flex min-h-[520px] w-full flex-col overflow-hidden rounded-[28px] bg-scrim lg:aspect-[21/10] lg:max-h-[60svh] lg:min-h-[430px]"
     >
-      <div data-hero-media aria-hidden="true" className="absolute inset-0 -z-10">
+      <div aria-hidden="true" className="absolute inset-0 -z-10">
         {/* eslint-disable-next-line @next/next/no-img-element -- static poster, also the failure fallback */}
         <img
+          key={`poster-${project.slug}`}
           src={project.poster}
           alt=""
-          fetchPriority="high"
+          fetchPriority={current === 0 ? "high" : undefined}
           className="absolute inset-0 h-full w-full object-cover"
         />
         <video
+          key={loopSrc}
           ref={videoRef}
-          src={project.src}
+          src={loopSrc}
           poster={project.poster}
           muted
+          loop={!isIntro}
           playsInline
-          preload="auto"
+          preload={isIntro ? "auto" : "metadata"}
           tabIndex={-1}
           onLoadedMetadata={(e) => {
-            if (e.currentTarget.currentTime < LOOP_START) e.currentTarget.currentTime = LOOP_START;
+            if (e.currentTarget.currentTime < loopStart) e.currentTarget.currentTime = loopStart;
           }}
-          onPlaying={() => {
-            setStatus("playing");
-            setHasPlayed(true);
-          }}
-          onPause={() => setStatus((s) => (s === "error" ? s : "paused"))}
+          onPlaying={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
           onEnded={(e) => {
-            e.currentTarget.currentTime = LOOP_START;
+            e.currentTarget.currentTime = loopStart;
             e.currentTarget.play().catch(() => {});
           }}
-          onError={() => setStatus("error")}
+          onError={() => {
+            setPlaying(false);
+            setFailed(loopSrc);
+          }}
           className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-700 ${
-            hasPlayed && status !== "error" ? "opacity-100" : "opacity-0"
+            playing && !videoFailed ? "opacity-100" : "opacity-0"
           }`}
         />
       </div>
-      <div data-hero-shade aria-hidden="true" className="absolute inset-0 -z-10 bg-ink opacity-30" />
-      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-ink via-ink/15 to-ink/55" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-r from-black/75 via-black/35 to-black/0" />
+      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-black/60 via-transparent to-black/20" />
 
-      <div className="flex items-start justify-between px-4 pt-20 font-mono text-[11px] tracking-[0.18em] uppercase sm:px-8 sm:pt-24 sm:text-xs">
-        <p data-hero-cut className="text-bone/80">
-          Video editing studio
-          <span className="block text-bone-dim">Product · Long form · Short form</span>
-        </p>
-        <p data-hero-cut className="text-right text-bone/80" aria-live="polite">
-          <span className="flex items-center justify-end gap-2">
-            <span
-              aria-hidden="true"
-              className={`size-2 rounded-full bg-rec ${playing ? "animate-[rec_1.6s_steps(2)_infinite]" : "opacity-40"}`}
-            />
-            <span>{status === "error" ? "Offline" : playing ? "Rec" : "Hold"}</span>
-            <span ref={timecodeRef} aria-hidden="true" className="text-bone tabular-nums">
-              00:00:00:00
-            </span>
-          </span>
-          <span className="block text-bone-dim">A001 · {project.title}</span>
-        </p>
+      <div className="flex items-start justify-between gap-3 p-5 sm:p-7">
+        <span className="tag">
+          {isIntro ? (
+            <>
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-live" /> Video editing portfolio
+            </>
+          ) : (
+            <>
+              <SparkIcon size={12} className="text-hot" /> Featured edit
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          onClick={() => {
+            setUserPaused(playing);
+            if (!playing) videoRef.current?.play().catch(() => {});
+          }}
+          disabled={videoFailed}
+          aria-label={playing ? "Pause background video" : "Play background video"}
+          className="icon-btn icon-btn-glass size-9"
+        >
+          {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+        </button>
       </div>
 
-      <div className="mt-auto px-4 sm:px-8">
-        <p className="max-w-[18ch] text-[clamp(2.25rem,6.2vw,5.5rem)] leading-[0.95] font-medium tracking-[-0.03em] text-balance">
-          {HEADLINE.map((word, i) => (
-            <span key={i} className="mr-[0.22em] inline-block overflow-hidden pb-[0.08em] align-bottom">
-              <span data-hero-word className="inline-block">{word}</span>
-            </span>
-          ))}
-        </p>
-        <p data-hero-cut className="mt-4 max-w-md text-base text-pretty text-bone/85 sm:text-lg">
-          Basiumlabs edits product launches, long-form stories and short-form social — built on
-          rhythm, pacing and the cut.
-        </p>
+      <div
+        key={current}
+        aria-live="polite"
+        className="rise mt-auto max-w-xl px-5 pb-20 sm:px-7 sm:pb-7"
+      >
+        <div className="mb-3 flex flex-wrap gap-2">
+          {isIntro ? (
+            [profile.role, "Content Creator"].map((t) => (
+              <span key={t} className="tag">{t}</span>
+            ))
+          ) : (
+            <>
+              <span className="tag">{project.format}</span>
+              <span className="tag">{categoryTitle(project.category)}</span>
+            </>
+          )}
+        </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <div data-hero-cut className="flex flex-wrap gap-2">
-            <a href="#work" className="btn-solid">
-              View work ↓
-            </a>
+        <h1
+          id={isIntro ? titleId : undefined}
+          className={
+            isIntro
+              ? "text-[clamp(2.4rem,5.4vw,4.25rem)] leading-[1] font-semibold tracking-[-0.03em]"
+              : "sr-only"
+          }
+        >
+          {profile.name}
+          {!isIntro && ` — ${profile.role}`}
+        </h1>
+        {!isIntro && (
+          <h2 id={titleId} className="text-[clamp(2rem,4.4vw,3.5rem)] leading-[1.02] font-semibold tracking-[-0.03em]">
+            {project.title}
+          </h2>
+        )}
+
+        {isIntro ? (
+          <>
+            <p className="mt-3 text-sm font-medium tracking-wide text-fg sm:text-base">
+              {profile.positioning.join(" · ")}
+            </p>
+            <p className="mt-2 max-w-md text-sm text-pretty text-fg-dim sm:text-[15px]">{profile.intro}</p>
+          </>
+        ) : (
+          <p className="mt-3 text-sm text-fg-dim sm:text-[15px]">
+            {toRuntime(project.durationSeconds)} · {aspectLabel(project)} ·{" "}
+            {project.hasAudio ? "With sound" : "Silent"}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-2.5">
+          {isIntro ? (
             <button
               type="button"
-              className="btn-ghost-lg"
+              className="pill-solid"
               onClick={() => openPlayer(showreel, 0, { label: "Showreel" })}
             >
-              <span aria-hidden="true" className="text-rec">▶</span> Play showreel
+              <PlayIcon size={16} /> Play showreel
             </button>
-          </div>
-          <div data-hero-cut className="flex gap-2">
+          ) : (
             <button
               type="button"
-              onClick={togglePlay}
-              disabled={status === "error"}
-              aria-label={playing ? "Pause background film" : "Play background film"}
-              className="btn-ghost"
+              className="pill-solid"
+              onClick={() => openPlayer(featured, slide.index, { label: "Featured" })}
             >
-              {playing ? "❚❚ Pause" : "▶ Play"}
+              <PlayIcon size={16} /> Watch
             </button>
-            <button
-              type="button"
-              onClick={toggleSound}
-              disabled={status === "error"}
-              aria-pressed={!muted}
-              aria-label="Background film sound"
-              className="btn-ghost"
-            >
-              {muted ? "Sound off" : "Sound on"}
-            </button>
-          </div>
+          )}
+          <a href={isIntro ? "#work" : "#about"} className="pill-ghost">
+            {isIntro ? "Browse edits" : "About me"}
+          </a>
+          <a href="#contact" className="icon-btn" aria-label="Contact">
+            <MailIcon size={17} />
+          </a>
         </div>
       </div>
 
-      <h1
-        id="hero-title"
-        data-hero-wordmark
-        className="mt-6 flex overflow-hidden px-4 pb-4 font-display text-[calc((100vw-2rem)/4.7)] leading-[0.82] uppercase sm:px-8 sm:pb-6 sm:text-[calc((100vw-4rem)/4.7)]"
-      >
-        <span className="sr-only">Basiumlabs — video editing studio</span>
-        {WORDMARK.split("").map((letter, i) => (
-          <span key={i} data-hero-letter aria-hidden="true" className="inline-block">
-            {letter}
-          </span>
-        ))}
-      </h1>
+      <div className="absolute right-5 bottom-5 flex items-center gap-3 sm:right-7 sm:bottom-7">
+        <p className="hidden text-xs text-fg-dim tabular-nums sm:block" aria-hidden="true">
+          {current + 1} / {slides.length}
+        </p>
+        <button type="button" onClick={() => go(-1)} aria-label="Previous slide" className="icon-btn icon-btn-glass">
+          <ChevronLeft />
+        </button>
+        <button type="button" onClick={() => go(1)} aria-label="Next slide" className="icon-btn icon-btn-glass">
+          <ChevronRight />
+        </button>
+      </div>
     </section>
   );
 }

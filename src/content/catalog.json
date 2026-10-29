@@ -1,5 +1,5 @@
 {
-  "$comment": "Editorial catalog. `source` is relative to the originals folder (parent of basiumlabs/) and is only ever read. `rotate` fixes footage encoded sideways. Times are in seconds. Categories are assigned by content, not folder.",
+  "$comment": "Editorial catalog. `source` is relative to the originals folder (parent of this project folder) and is only ever read. `rotate` fixes footage encoded sideways. Times are in seconds. Categories are assigned by content, not folder.",
   "projects": [
     {
       "slug": "mvp",

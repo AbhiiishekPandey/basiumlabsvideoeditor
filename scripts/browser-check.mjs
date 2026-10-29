@@ -2,8 +2,9 @@
 // End-to-end checks against a running build, via the Chrome DevTools Protocol
 // (no dependencies; drives a locally installed Edge or Chrome).
 //
-// Usage: node scripts/browser-check.mjs [--url http://localhost:3100] [--media <base>] [--out ./qa]
+// Usage: node scripts/browser-check.mjs [--url http://localhost:3100] [--media <base>] [--out ./qa] [--loose-media]
 //   --media: the NEXT_PUBLIC_MEDIA_BASE_URL the site was built with (default <url>/media)
+//   --loose-media: skip byte-size checks against the manifest (for stand-in test media)
 // Env:   BROWSER=<path to chrome/msedge>
 
 import { spawn } from "node:child_process";
@@ -19,7 +20,8 @@ const arg = (name, fallback) => {
 };
 const BASE = arg("--url", "http://localhost:3100");
 const MEDIA = arg("--media", `${BASE}/media`).replace(/\/+$/, "");
-const OUT = resolve(arg("--out", join(tmpdir(), "basiumlabs-qa")));
+const OUT = resolve(arg("--out", join(tmpdir(), "portfolio-qa")));
+const LOOSE = process.argv.includes("--loose-media");
 mkdirSync(OUT, { recursive: true });
 
 const BROWSER =
@@ -49,7 +51,8 @@ for (const [slug, m] of Object.entries(manifest)) {
     const res = await fetch(`${MEDIA}/${slug}/${file}`, { headers: { Range: "bytes=0-0" } });
     const total = Number(res.headers.get("content-range")?.split("/")[1]);
     const type = res.headers.get("content-type") ?? "";
-    check(`asset ${slug}/${file}`, res.status === 206 && total === m.bytes[key] && /^(video\/mp4|image\/jpeg)/.test(type),
+    check(`asset ${slug}/${file}`,
+      res.status === 206 && (LOOSE || total === m.bytes[key]) && /^(video\/mp4|image\/jpeg)/.test(type),
       `status ${res.status}, ${total} bytes, ${type}`);
   }
 }
@@ -58,12 +61,11 @@ for (const [slug, m] of Object.entries(manifest)) {
 {
   const res = await fetch(BASE);
   const html = await res.text();
-  check("branding: tab title", html.includes("<title>Basiumlabs — Video Editing Portfolio</title>"));
-  check("branding: svg + ico + apple icons linked",
-    /<link rel="icon" href="\/icon\.svg[^"]*"[^>]*type="image\/svg\+xml"/.test(html) &&
-    /<link rel="icon" href="\/favicon\.ico/.test(html) && /<link rel="apple-touch-icon" href="\/apple-icon\.png/.test(html));
-  // Same-origin media (the local default) is referenced by path and needs no
-  // preconnect; external media is referenced by full URL.
+  check("branding: tab title", html.includes("<title>Abhishek Pandey — Video Editor</title>"));
+  check("branding: og + twitter image linked",
+    /<meta property="og:image" content="[^"]*\/opengraph-image/.test(html) && html.includes('content="summary_large_image"'));
+  check("branding: no Basiumlabs studio identity", !/basiumlabs|video editing studio/i.test(html));
+  check("branding: name is the h1", /<h1[^>]*>Abhishek Pandey/.test(html));
   const sameOrigin = new URL(MEDIA).origin === new URL(BASE).origin;
   const mediaRef = sameOrigin ? new URL(MEDIA).pathname : MEDIA;
   if (!sameOrigin) {
@@ -74,26 +76,21 @@ for (const [slug, m] of Object.entries(manifest)) {
       linkHeader.includes(`<${origin}>; rel=preconnect`) || html.includes(`<link rel="preconnect" href="${origin}"`), origin);
   }
   check("branding: no X-Powered-By header", !res.headers.get("x-powered-by"), res.headers.get("x-powered-by") ?? "absent");
-  check("branding: no starter text in page", !/next\.js|create next app|vercel\.svg|next\.svg/i.test(html));
   check("media: page references configured media base", html.includes(`${mediaRef}/mvp/`), mediaRef);
-  for (const path of ["/favicon.ico", "/icon.svg", "/apple-icon.png"]) {
+  for (const path of ["/icon.svg", "/opengraph-image"]) {
     const r = await fetch(BASE + path);
     check(`branding: ${path} served`, r.ok, `${r.status} ${r.headers.get("content-type")}`);
   }
-  for (const path of ["/next.svg", "/vercel.svg"]) {
-    check(`branding: ${path} removed`, (await fetch(BASE + path)).status === 404);
-  }
   const nf = await fetch(`${BASE}/definitely-not-a-page`);
   const nfHtml = await nf.text();
-  check("branding: 404 page is Basiumlabs-branded",
-    nf.status === 404 && nfHtml.includes("Off the timeline") && nfHtml.includes("<title>Page not found — Basiumlabs</title>"),
-    `status ${nf.status}`);
+  check("branding: 404 page is branded",
+    nf.status === 404 && nfHtml.includes("<title>Page not found — Abhishek Pandey</title>"), `status ${nf.status}`);
 }
 
 // ---------- 2. Browser session helpers ----------
 async function session({ width, height, reducedMotion = false, blockVideo = false }) {
   const port = 9300 + Math.floor(Math.random() * 600);
-  const profile = mkdtempSync(join(tmpdir(), "bl-cdp-"));
+  const profile = mkdtempSync(join(tmpdir(), "pf-cdp-"));
   const proc = spawn(BROWSER, [
     "--headless=new", "--disable-gpu", "--hide-scrollbars", "--mute-audio",
     "--autoplay-policy=no-user-gesture-required",
@@ -150,8 +147,13 @@ async function session({ width, height, reducedMotion = false, blockVideo = fals
     await send("Input.dispatchKeyEvent", { type: "keyDown", key: k, code, windowsVirtualKeyCode: keyCode });
     await send("Input.dispatchKeyEvent", { type: "keyUp", key: k, code, windowsVirtualKeyCode: keyCode });
   };
-  const shot = async (name) => {
-    const r = await send("Page.captureScreenshot", { format: "png" });
+  const shot = async (name, { full = false } = {}) => {
+    let params = { format: "png" };
+    if (full) {
+      const { cssContentSize: c } = (await send("Page.getLayoutMetrics")).result;
+      params = { ...params, captureBeyondViewport: true, clip: { x: 0, y: 0, width: c.width, height: c.height, scale: 1 } };
+    }
+    const r = await send("Page.captureScreenshot", params);
     writeFileSync(join(OUT, `${name}.png`), Buffer.from(r.result.data, "base64"));
   };
 
@@ -176,122 +178,122 @@ async function session({ width, height, reducedMotion = false, blockVideo = fals
 }
 
 const heroVideo = `document.querySelector('#hero-title').closest('section').querySelector('video')`;
+const heroTitle = `document.querySelector('#hero-title').textContent`;
 const noOverflow = `document.documentElement.scrollWidth <= document.documentElement.clientWidth`;
 const scrollTo = (sel) => `document.querySelector('${sel}').scrollIntoView({block:'start'}); true`;
+const clickText = (sel, text) =>
+  `(() => { const b = [...document.querySelectorAll(${JSON.stringify(sel)})].find(b => b.textContent.trim().startsWith(${JSON.stringify(text)})); b.focus(); b.click(); return true; })()`;
+const playerOpen = `document.querySelector('dialog.player').open`;
+const playerTitle = `document.querySelector('#player-title')?.textContent`;
+// Collapsed, the grid hides items past its full rows with CSS; count what's shown.
+const counts = `({ grid: [...document.querySelectorAll('#work-grid > li')].filter(li => li.getClientRects().length).length,
+  label: document.querySelector('#work-title span').textContent,
+  reels: document.querySelectorAll('#reels li').length,
+  index: document.querySelectorAll('#index li').length })`;
 
 // ---------- 3. Desktop ----------
 {
   const s = await session({ width: 1440, height: 900 });
   const tag = "desktop";
-  const heroPlays = await s.waitFor(`!${heroVideo}.paused && ${heroVideo}.currentTime >= 6`); // loop skips MVP's black open
-  check(`${tag}: hero is MVP and autoplays muted`,
+  const heroPlays = await s.waitFor(`!${heroVideo}.paused && ${heroVideo}.currentTime >= 6`); // intro loop skips MVP's black open
+  check(`${tag}: intro slide loops MVP muted from 6s`,
     heroPlays && (await s.evaluate(`${heroVideo}.currentSrc === '${MEDIA}/mvp/sd.mp4' && ${heroVideo}.muted`)),
     await s.evaluate(`${heroVideo}.currentSrc + ' t=' + ${heroVideo}.currentTime.toFixed(2)`));
-  const tc1 = await s.evaluate(`document.querySelector('#hero-title').closest('section').querySelector('.tabular-nums').textContent`);
-  await sleep(700);
-  const tc2 = await s.evaluate(`document.querySelector('#hero-title').closest('section').querySelector('.tabular-nums').textContent`);
-  check(`${tag}: hero timecode advances`, tc1 !== tc2 && tc2 !== "00:00:00:00", `${tc1} → ${tc2}`);
-  check(`${tag}: hero wordmark fits`, await s.evaluate(`(() => { const h = document.getElementById('hero-title'); return h.scrollWidth <= h.clientWidth + 1; })()`));
   check(`${tag}: no horizontal overflow`, await s.evaluate(noOverflow));
-  await s.evaluate(`[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'Background film sound').click()`);
-  check(`${tag}: hero sound toggle unmutes`, await s.waitFor(`!${heroVideo}.muted && document.querySelector('[aria-label="Background film sound"]').getAttribute('aria-pressed') === 'true'`, 2000));
-  await s.evaluate(`document.querySelector('[aria-label="Background film sound"]').click()`);
-  await s.shot(`${tag}-hero`);
+  check(`${tag}: side rail visible`, await s.evaluate(`getComputedStyle(document.querySelector('nav[aria-label=Sections]')).display !== 'none'`));
+  await sleep(900);
+  await s.shot(`${tag}-home`);
 
-  const counts = await s.evaluate(`({
-    pl: document.querySelectorAll('#product-launch article [data-cursor]').length,
-    lf: document.querySelectorAll('#long-form article [data-cursor]').length,
-    sf: document.querySelectorAll('#short-form article [data-cursor]').length,
-    edl: document.querySelectorAll('#index tbody tr').length })`);
-  check(`${tag}: section counts 4/2/7 and index 13`,
-    counts.pl === 4 && counts.lf === 2 && counts.sf === 7 && counts.edl === 13, JSON.stringify(counts));
+  const c0 = await s.evaluate(counts);
+  check(`${tag}: default counts (4 cards, 7 reels, 13 in index)`,
+    c0.grid === 4 && c0.reels === 7 && c0.index === 13 && c0.label.endsWith("13"), JSON.stringify(c0));
+  await s.evaluate(clickText("nav[aria-label='Filter work'] button", "Short Form"));
+  await s.evaluate(clickText("#work button", "See all"));
+  const c1 = await s.evaluate(counts);
+  check(`${tag}: Short Form filter + See all shows 7`, c1.grid === 7 && c1.label.endsWith("7"), JSON.stringify(c1));
+  await s.evaluate(clickText("nav[aria-label='Filter work'] button", "Product Films"));
+  const c2 = await s.evaluate(counts);
+  check(`${tag}: Product Films filter shows 4, collapsed`, c2.grid === 4 && c2.label.endsWith("4"), JSON.stringify(c2));
+  await s.evaluate(clickText("nav[aria-label='Filter work'] button", "All work"));
 
-  const anchors = await s.evaluate(`[...document.querySelectorAll('header a[href^="#"], a[href="#work"]')].map(a => [a.getAttribute('href'), !!document.querySelector(a.getAttribute('href'))])`);
-  check(`${tag}: all nav anchors resolve`, anchors.every(([, ok]) => ok), anchors.map(([h, ok]) => `${h}${ok ? "" : " MISSING"}`).join(" "));
+  // Focus a card: the preview loop attaches and plays.
+  await s.evaluate(`document.querySelector('#work-grid button').focus(); true`);
+  check(`${tag}: card preview plays on focus`,
+    await s.waitFor(`(() => { const v = document.querySelector('#work-grid video'); return v && !v.paused && v.currentTime > 0.2; })()`, 6000));
 
-  for (const id of ["product-launch", "long-form", "short-form", "index"]) {
-    await s.evaluate(scrollTo(`#${id}`));
-    if (id !== "index") {
-      const probe = `(() => { const sec = document.getElementById('${id}');
-        const ty = new DOMMatrix(getComputedStyle(sec.querySelector('[data-word]')).transform).m42;
-        const clips = [...sec.querySelectorAll('[data-clip-in]')].filter(el => el.getBoundingClientRect().top < innerHeight);
-        return { titleOffsetPx: +ty.toFixed(2),
-                 clipsVisible: clips.every(el => ['none','inset(0%)'].includes(getComputedStyle(el).clipPath)),
-                 previewsPlaying: [...sec.querySelectorAll('article video')].filter(v => !v.paused).length }; })()`;
-      await s.waitFor(`(() => { const r = ${probe}; return Math.abs(r.titleOffsetPx) < 0.5 && r.clipsVisible && r.previewsPlaying > 0; })()`, 6000);
-      const st = await s.evaluate(probe);
-      // Frames delivered in 500ms; headless Chromium can starve rAF, which stalls any animation.
-      st.rafPer500ms = await s.evaluate(`new Promise(r => { let n = 0; const t0 = performance.now(); const f = () => { n++; performance.now() - t0 < 500 ? requestAnimationFrame(f) : r(n); }; requestAnimationFrame(f); setTimeout(() => r(n), 1500); })`);
-      check(`${tag}: ${id} revealed and previews playing`,
-        Math.abs(st.titleOffsetPx) < 0.5 && st.clipsVisible && st.previewsPlaying > 0, JSON.stringify(st));
-    } else {
-      await sleep(800);
-    }
-    await s.shot(`${tag}-${id}`);
-  }
+  const anchors = await s.evaluate(`[...document.querySelectorAll('a[href^="#"]')].map(a => [a.getAttribute('href'), !!document.querySelector(a.getAttribute('href'))])`);
+  check(`${tag}: all in-page anchors resolve`, anchors.every(([, ok]) => ok), anchors.filter(([, ok]) => !ok).map(([h]) => h).join(" "));
 
-  await s.evaluate(scrollTo("#short-form"));
-  await sleep(400);
-  const before = await s.evaluate(`document.querySelector('#short-form [role=region]').scrollLeft`);
-  await s.evaluate(`document.querySelector('[aria-label="Scroll filmstrip forward"]').click()`);
-  check(`${tag}: filmstrip pages forward`,
-    await s.waitFor(`document.querySelector('#short-form [role=region]').scrollLeft > ${before + 100}`, 3000));
+  // Carousel: next shows the first featured piece and plays its preview; Watch opens it.
+  await s.evaluate(`document.querySelector('[aria-label="Next slide"]').click()`);
+  await s.waitFor(`${heroTitle} === 'TEDx Trailer'`, 3000);
+  check(`${tag}: carousel next → TEDx Trailer preview`,
+    await s.waitFor(`${heroVideo}.currentSrc === '${MEDIA}/tedx-trailer/preview.mp4' && !${heroVideo}.paused`, 6000),
+    await s.evaluate(`${heroTitle} + ' ' + ${heroVideo}.currentSrc`));
+  check(`${tag}: h1 keeps the name on featured slides`, await s.evaluate(`document.querySelector('h1').textContent.startsWith('Abhishek Pandey')`));
+  await sleep(900);
+  await s.shot(`${tag}-featured`);
+  await s.evaluate(clickText("section[aria-roledescription] button", "Watch"));
+  await s.waitFor(playerOpen, 3000);
+  check(`${tag}: Watch opens the featured film`, (await s.evaluate(playerTitle)) === "TEDx Trailer");
+  await s.key("Escape", "Escape", 27);
+  await s.waitFor(`!${playerOpen}`, 3000);
+  await s.evaluate(`document.querySelector('[aria-label="Previous slide"]').click()`);
 
-  // Every project: open from the index, verify source, sound and dimensions, close with Esc.
-  const projectsOnPage = await s.evaluate(`[...document.querySelectorAll('#index tbody button')].map(b => b.getAttribute('aria-label'))`);
+  // Every project from the index: right source (HD on desktop when available), sound, focus; Esc closes.
   for (let i = 0; i < catalog.length; i++) {
     const item = catalog[i];
     const m = manifest[item.slug];
-    await s.evaluate(`(() => { const b = document.querySelectorAll('#index tbody button')[${i}]; b.focus(); b.click(); return true; })()`);
+    await s.evaluate(`(() => { const b = document.querySelectorAll('#index li button')[${i}]; b.focus(); b.click(); return true; })()`);
     const playing = await s.waitFor(`(() => { const v = document.querySelector('dialog.player video'); return v && v.currentTime > 0.6 && v.readyState >= 3; })()`, 12000);
     const st = await s.evaluate(`(() => { const d = document.querySelector('dialog.player'); const v = d.querySelector('video');
       return { open: d.open, title: d.querySelector('#player-title')?.textContent, src: v.currentSrc,
-               muted: v.muted, volume: v.volume, w: v.videoWidth, h: v.videoHeight,
+               muted: v.muted, w: v.videoWidth, h: v.videoHeight,
                audioBytes: v.webkitAudioDecodedByteCount ?? -1, focused: document.activeElement === v,
                error: !!d.querySelector('[role=alert]') }; })()`);
     const expectHd = Boolean(m.files.hd);
-    const expW = expectHd ? m.hd.width : m.width;
-    const expH = expectHd ? m.hd.height : m.height;
     const ok = st.open && playing && st.focused && st.title === item.title &&
-      st.src === `${MEDIA}/${item.slug}/${expectHd ? "hd" : "sd"}.mp4` &&
-      !st.muted && st.volume > 0 && st.audioBytes > 0 && st.w === expW && st.h === expH && !st.error;
+      st.src === `${MEDIA}/${item.slug}/${expectHd ? "hd" : "sd"}.mp4` && !st.muted && st.audioBytes > 0 &&
+      st.w === (expectHd ? m.hd.width : m.width) && st.h === (expectHd ? m.hd.height : m.height) && !st.error;
     check(`${tag}: plays ${item.slug} with sound`, ok,
       `${st.src.slice(MEDIA.length + 1)} ${st.w}x${st.h} audioBytes=${st.audioBytes} focused=${st.focused}`);
     if (i === 0) await s.shot(`${tag}-player`);
     await s.key("Escape", "Escape", 27);
-    const closed = await s.waitFor(`!document.querySelector('dialog.player').open`, 3000);
+    const closed = await s.waitFor(`!${playerOpen}`, 3000);
     const paused = await s.waitFor(`!document.querySelector('dialog.player video') || document.querySelector('dialog.player video').paused`, 3000);
     if (!closed || !paused) check(`${tag}: ${item.slug} closes on Esc and stops`, false);
   }
-  check(`${tag}: index lists all titles`, projectsOnPage.length === catalog.length);
 
-  // A frame in each layout opens the right piece.
-  for (const id of ["product-launch", "long-form", "short-form"]) {
-    const expected = await s.evaluate(`document.querySelector('#${id} article h3').textContent`);
-    await s.evaluate(`document.querySelector('#${id} article [data-cursor]').click()`);
-    await s.waitFor(`document.querySelector('dialog.player').open && !!document.querySelector('#player-title')`, 3000);
-    const got = await s.evaluate(`({ open: document.querySelector('dialog.player').open, title: document.querySelector('#player-title')?.textContent ?? null })`);
-    check(`${tag}: ${id} frame opens its own film`, got.open && got.title === expected, `expected ${expected}, got ${JSON.stringify(got)}`);
-    await s.key("Escape", "Escape", 27);
-    await s.waitFor(`!document.querySelector('dialog.player').open`, 3000);
-  }
+  // A reel tile opens that reel.
+  const reelLabel = await s.evaluate(`document.querySelector('#reels li button').getAttribute('aria-label')`);
+  await s.evaluate(`document.querySelector('#reels li button').click()`);
+  await s.waitFor(playerOpen, 3000);
+  const gotReel = await s.evaluate(playerTitle);
+  check(`${tag}: reel tile opens its own film`, reelLabel.startsWith(`Play ${gotReel},`), `${reelLabel} → ${gotReel}`);
+  await s.key("Escape", "Escape", 27);
+  await s.waitFor(`!${playerOpen}`, 3000);
 
   // Showreel: opens on MVP, N advances, P goes back, focus returns on close.
   await s.evaluate(scrollTo("#top"));
-  await s.evaluate(`(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Play showreel')); b.focus(); b.click(); return true; })()`);
-  await s.waitFor(`document.querySelector('dialog.player').open`, 3000);
-  const t0 = await s.evaluate(`document.querySelector('#player-title').textContent`);
+  await s.evaluate(clickText("button", "Play showreel"));
+  await s.waitFor(playerOpen, 3000);
+  const t0 = await s.evaluate(playerTitle);
   await s.key("n", "KeyN", 78);
   await sleep(400);
-  const t1 = await s.evaluate(`document.querySelector('#player-title').textContent`);
+  const t1 = await s.evaluate(playerTitle);
   await s.key("p", "KeyP", 80);
   await sleep(400);
-  const t2 = await s.evaluate(`document.querySelector('#player-title').textContent`);
+  const t2 = await s.evaluate(playerTitle);
   check(`${tag}: showreel starts on MVP, N/P navigate`, t0 === "MVP" && t1 !== t0 && t2 === t0, `${t0} → ${t1} → ${t2}`);
   await s.key("Escape", "Escape", 27);
-  await s.waitFor(`!document.querySelector('dialog.player').open`, 3000);
+  await s.waitFor(`!${playerOpen}`, 3000);
   check(`${tag}: focus returns to trigger`, await s.evaluate(`document.activeElement?.textContent.includes('Play showreel')`));
 
+  for (const id of ["about", "contact"]) {
+    await s.evaluate(scrollTo(`#${id}`));
+    await sleep(500);
+    await s.shot(`${tag}-${id}`);
+  }
   check(`${tag}: no console errors`, s.errors.length === 0, s.errors.slice(0, 3).join(" | "));
   s.close();
 }
@@ -302,20 +304,21 @@ const scrollTo = (sel) => `document.querySelector('${sel}').scrollIntoView({bloc
   const tag = "mobile";
   check(`${tag}: hero plays`, await s.waitFor(`!${heroVideo}.paused`));
   check(`${tag}: no horizontal overflow`, await s.evaluate(noOverflow));
-  await sleep(2000); // let the intro finish before the screenshot
-  await s.shot(`${tag}-hero`);
-  for (const id of ["product-launch", "long-form", "short-form", "index"]) {
+  check(`${tag}: side rail hidden`, await s.evaluate(`getComputedStyle(document.querySelector('nav[aria-label=Sections]')).display === 'none'`));
+  await sleep(1200);
+  await s.shot(`${tag}-home`);
+  for (const id of ["work", "reels", "index", "about", "contact"]) {
     await s.evaluate(scrollTo(`#${id}`));
-    await sleep(1600);
+    await sleep(700);
     await s.shot(`${tag}-${id}`);
   }
   check(`${tag}: no horizontal overflow after scroll`, await s.evaluate(noOverflow));
   const trailer = catalog.findIndex((c) => c.slug === "tedx-trailer");
-  await s.evaluate(`document.querySelectorAll('#index tbody button')[${trailer}].click()`);
+  await s.evaluate(`document.querySelectorAll('#index li button')[${trailer}].click()`);
   await s.waitFor(`document.querySelector('dialog.player video')?.currentSrc`, 5000);
   const src = await s.evaluate(`document.querySelector('dialog.player video').currentSrc`);
   check(`${tag}: player serves SD, not HD`, src === `${MEDIA}/tedx-trailer/sd.mp4`, src);
-  await sleep(1500); // let the cut-in transition finish
+  await sleep(1000);
   await s.shot(`${tag}-player`);
   check(`${tag}: no console errors`, s.errors.length === 0, s.errors.slice(0, 3).join(" | "));
   s.close();
@@ -326,15 +329,15 @@ const scrollTo = (sel) => `document.querySelector('${sel}').scrollIntoView({bloc
   const s = await session({ width: 1440, height: 900, reducedMotion: true });
   const tag = "reduced-motion";
   await sleep(2500);
+  await s.evaluate(`document.querySelector('#work-grid button').focus(); true`);
+  await sleep(800);
   const st = await s.evaluate(`({ heroPaused: ${heroVideo}.paused,
-    previewVideos: document.querySelectorAll('article [data-cursor] video').length,
-    letter: getComputedStyle(document.querySelector('[data-hero-letter]')).transform,
+    previewVideos: document.querySelectorAll('#work-grid video').length,
     posterShown: document.querySelector('#hero-title').closest('section').querySelector('img').naturalWidth > 0 })`);
-  check(`${tag}: no autoplay, no preview loops, poster shown, no transforms`,
-    st.heroPaused && st.previewVideos === 0 && st.posterShown && st.letter === "none", JSON.stringify(st));
-  await s.evaluate(`document.querySelector('[aria-label="Play background film"]').click()`);
+  check(`${tag}: no autoplay, no hover previews, poster shown`,
+    st.heroPaused && st.previewVideos === 0 && st.posterShown, JSON.stringify(st));
+  await s.evaluate(`document.querySelector('[aria-label="Play background video"]').click()`);
   check(`${tag}: manual hero play works`, await s.waitFor(`!${heroVideo}.paused`, 4000));
-  await s.shot(`${tag}-hero`);
   s.close();
 }
 
@@ -345,14 +348,115 @@ const scrollTo = (sel) => `document.querySelector('${sel}').scrollIntoView({bloc
   await sleep(2500);
   const st = await s.evaluate(`(() => { const sec = document.querySelector('#hero-title').closest('section');
     return { posterShown: sec.querySelector('img').naturalWidth > 0,
-             videoHidden: getComputedStyle(sec.querySelector('video')).opacity === '0',
-             status: sec.textContent.includes('Offline') }; })()`);
-  check(`${tag}: hero falls back to poster`, st.posterShown && st.videoHidden && st.status, JSON.stringify(st));
-  await s.shot(`${tag}-hero`);
-  await s.evaluate(`document.querySelectorAll('#index tbody button')[1].click()`);
+             videoHidden: getComputedStyle(sec.querySelector('video')).opacity === '0' }; })()`);
+  check(`${tag}: hero falls back to poster`, st.posterShown && st.videoHidden, JSON.stringify(st));
+  await s.evaluate(`document.querySelectorAll('#index li button')[1].click()`);
   check(`${tag}: player shows error state with retry`,
     await s.waitFor(`!!document.querySelector('dialog.player [role=alert]')`, 6000));
   await s.shot(`${tag}-player`);
+  s.close();
+}
+
+// ---------- 7. Responsive sweep ----------
+// Whole page at each width: overflow, window width, section alignment, rail
+// clearance, nav wrapping, full card rows, tap targets, and real playback of one
+// horizontal and one vertical film with the player box matching the film's ratio.
+const VIEWPORTS = [
+  [1920, 1080], [1440, 900], [1366, 768], [1280, 800], [1024, 768],
+  [768, 1024], [390, 844], [375, 667], [320, 568],
+];
+const expectedCards = (w) => (w >= 1536 ? 5 : w >= 1024 ? 4 : w >= 768 ? 6 : 4);
+const gridCols = (w) => (w >= 1536 ? 5 : w >= 1024 ? 4 : w >= 768 ? 3 : 2);
+
+for (const [width, height] of VIEWPORTS) {
+  const s = await session({ width, height });
+  const tag = `${width}px`;
+  await s.waitFor(`!!document.querySelector('#hero-title')`, 8000);
+  await sleep(800);
+
+  // Walk down the page so lazy content renders, then measure.
+  await s.evaluate(`window.scrollTo(0, document.documentElement.scrollHeight); true`);
+  await sleep(300);
+  await s.evaluate(`window.scrollTo(0, 0); true`);
+  await sleep(300);
+
+  const m = await s.evaluate(`(() => {
+    const vw = document.documentElement.clientWidth;
+    const r = (el) => el.getBoundingClientRect();
+    const win = document.querySelector('#top > div');
+    const about = document.getElementById('about'), contact = document.getElementById('contact');
+    const rail = document.querySelector('nav[aria-label=Sections]');
+    const railShown = getComputedStyle(rail).display !== 'none';
+    const nav = document.querySelector('nav[aria-label="Filter work"]');
+    // Anything poking past the viewport, ignoring sr-only text, the closed dialog,
+    // and content an ancestor clips to its own (in-viewport) box.
+    const clipped = (el) => { for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+      const o = getComputedStyle(a).overflowX; if (o !== 'visible') { const b = r(a); return b.right <= vw + 1 && b.left >= -1; } } return false; };
+    const offenders = [...document.querySelectorAll('body *')].filter(el => {
+      if (el.closest('dialog') || el.closest('.sr-only') || !el.getClientRects().length) return false;
+      const b = r(el); return b.width > 0 && (b.right > vw + 1 || b.left < -1) && !clipped(el);
+    }).slice(0, 5).map(el => el.tagName + '.' + String(el.className).split(' ').slice(0, 3).join('.'));
+    const tabs = [...nav.querySelectorAll('button, a')].map(r);
+    const index = [...document.querySelectorAll('#index li button')];
+    return {
+      vw,
+      overflow: document.documentElement.scrollWidth > vw,
+      offenders,
+      winRatio: +(r(win).width / vw).toFixed(3),
+      leftGap: Math.round(r(win).left), rightGap: Math.round(vw - r(win).right),
+      aligned: [about, contact].every(el => Math.abs(r(el).left - r(win).left) <= 1 && Math.abs(r(el).right - r(win).right) <= 1),
+      railShown,
+      railClear: !railShown || r(rail).right <= r(win).left - 4,
+      navNoScroll: nav.scrollWidth <= nav.clientWidth + 1 && tabs.every(b => b.right <= vw && b.left >= 0),
+      tabMinH: Math.round(Math.min(...tabs.map(b => b.height))),
+      h1Fits: (() => { const h = document.querySelector('h1'); return h.scrollWidth <= h.clientWidth + 1; })(),
+      cards: [...document.querySelectorAll('#work-grid > li')].filter(li => li.getClientRects().length).length,
+      cardRowTops: [...new Set([...document.querySelectorAll('#work-grid > li')].filter(li => li.getClientRects().length).map(li => Math.round(r(li).top)))].length,
+      reels: document.querySelectorAll('#reels li').length,
+      indexCount: index.length,
+      indexMinH: Math.round(Math.min(...index.map(b => r(b).height))),
+      cardsUndistorted: [...document.querySelectorAll('#work-grid img, #reels img, #index img')].every(i => getComputedStyle(i).objectFit === 'cover'),
+    };
+  })()`);
+
+  check(`${tag}: no horizontal overflow (whole page)`, !m.overflow && m.offenders.length === 0, m.offenders.join(", "));
+  if (width >= 1024) {
+    check(`${tag}: window uses ≥ 91% of the viewport`, m.winRatio >= 0.91, `${(m.winRatio * 100).toFixed(1)}%, gaps L${m.leftGap}/R${m.rightGap}px`);
+  } else {
+    check(`${tag}: window fills the width (≤ 16px gutters)`, m.leftGap <= 16 && m.rightGap <= 16, `gaps L${m.leftGap}/R${m.rightGap}px`);
+  }
+  check(`${tag}: About + Contact align with the window`, m.aligned);
+  check(`${tag}: rail ${width >= 1280 ? "shown and clear of the window" : "hidden"}`, width >= 1280 ? m.railShown && m.railClear : !m.railShown);
+  check(`${tag}: filter tabs fit without horizontal scrolling`, m.navNoScroll && m.tabMinH >= 32, `min tab height ${m.tabMinH}px`);
+  check(`${tag}: name not clipped`, m.h1Fits);
+  check(`${tag}: ${expectedCards(width)} cards in full rows of ${gridCols(width)}`,
+    m.cards === expectedCards(width) && m.cardRowTops === m.cards / gridCols(width), `${m.cards} cards, ${m.cardRowTops} rows`);
+  check(`${tag}: 7 reels and all 13 edits listed, tap targets ≥ 44px`,
+    m.reels === 7 && m.indexCount === 13 && m.indexMinH >= 44, `reels ${m.reels}, index ${m.indexCount}, min row ${m.indexMinH}px`);
+  check(`${tag}: thumbnails crop (object-fit: cover), never stretch`, m.cardsUndistorted);
+  await s.shot(`sweep-${width}-top`);
+  await s.shot(`sweep-${width}-full`, { full: true });
+
+  // Real playback: one 16:9 and one 9:16 film. The player box must match the
+  // film's ratio and sit fully on screen with its controls.
+  for (const slug of ["tedx-end-of-story", "facultify"]) {
+    const i = catalog.findIndex((c) => c.slug === slug);
+    await s.evaluate(`(() => { const b = document.querySelectorAll('#index li button')[${i}]; b.scrollIntoView({block:'center'}); b.click(); return true; })()`);
+    const playing = await s.waitFor(`(() => { const v = document.querySelector('dialog.player video'); return v && v.currentTime > 0.5 && v.readyState >= 3; })()`, 15000);
+    const p = await s.evaluate(`(() => { const d = document.querySelector('dialog.player'); const v = d.querySelector('video');
+      const b = v.getBoundingClientRect(); const close = [...d.querySelectorAll('button')].find(x => x.textContent.includes('Close')).getBoundingClientRect();
+      return { title: d.querySelector('#player-title').textContent, src: v.currentSrc.split('/').slice(-2).join('/'),
+        boxRatio: b.width / b.height, filmRatio: v.videoWidth / v.videoHeight,
+        onScreen: b.left >= -1 && b.top >= -1 && b.right <= innerWidth + 1 && b.bottom <= innerHeight + 1,
+        closeOnScreen: close.right <= innerWidth && close.top >= 0, w: Math.round(b.width), h: Math.round(b.height) }; })()`);
+    check(`${tag}: plays ${slug} at its own ratio, on screen`,
+      playing && p.title === catalog[i].title && Math.abs(p.boxRatio - p.filmRatio) < 0.02 && p.onScreen && p.closeOnScreen,
+      `${p.src} box ${p.w}x${p.h} (${p.boxRatio.toFixed(3)} vs film ${p.filmRatio.toFixed(3)})`);
+    if (slug === "facultify") await s.shot(`sweep-${width}-player-vertical`);
+    await s.key("Escape", "Escape", 27);
+    await s.waitFor(`!${playerOpen}`, 3000);
+  }
+  check(`${tag}: no console errors`, s.errors.length === 0, s.errors.slice(0, 3).join(" | "));
   s.close();
 }
 
